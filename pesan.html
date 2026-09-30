@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#2a2e39">
+<title>Kirim Pesan</title>
+<style>
+  /* Warna didaftarkan supaya perpindahan tema bisa beranimasi halus */
+  @property --bg     { syntax: '<color>'; inherits: true; initial-value: #2a2e39; }
+  @property --text   { syntax: '<color>'; inherits: true; initial-value: #d6dcec; }
+  @property --muted  { syntax: '<color>'; inherits: true; initial-value: #8a92a8; }
+  @property --accent { syntax: '<color>'; inherits: true; initial-value: #7c9bff; }
+  @property --light  { syntax: '<color>'; inherits: true; initial-value: #363b4a; }
+  @property --dark   { syntax: '<color>'; inherits: true; initial-value: #1b1e26; }
+
+  /* Mode gelap (bawaan) */
+  :root {
+    --bg: #2a2e39; --text: #d6dcec; --muted: #8a92a8; --accent: #7c9bff;
+    --light: #363b4a; --dark: #1b1e26;
+    --kilau: rgba(255,255,255,.16);
+    --tsh1: rgba(0,0,0,.45); --tsh2: rgba(0,0,0,.65); --tsh3: rgba(0,0,0,.4);
+    --ring: rgba(124,155,255,.35); --ripple: rgba(124,155,255,.22);
+    --ok: #3ecf82; --err: #ff6b6b; --warn: #f0a04b;
+    color-scheme: dark;
+  }
+  /* Mode terang */
+  :root[data-tema="terang"] {
+    --bg: #e0e5ec; --text: #44506a; --muted: #8a94a8; --accent: #5b7cfa;
+    --light: #ffffff; --dark: #a3b1c6;
+    --kilau: rgba(255,255,255,.65);
+    --tsh1: rgba(163,177,198,.6); --tsh2: rgba(163,177,198,.85); --tsh3: rgba(255,255,255,.7);
+    --ring: rgba(91,124,250,.35); --ripple: rgba(91,124,250,.25);
+    --ok: #1f9d55; --err: #d64545; --warn: #d68a2d;
+    color-scheme: light;
+  }
+  /* Transisi tema aktif setelah halaman siap (supaya tidak berkedip saat dibuka) */
+  :root.siap {
+    transition: --bg .7s ease, --text .7s ease, --muted .7s ease,
+                --accent .7s ease, --light .7s ease, --dark .7s ease;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: system-ui, sans-serif; color: var(--text); background: var(--bg);
+    margin: 0; min-height: 100vh; padding: 20px;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* Kartu timbul */
+  .card {
+    width: 100%; max-width: 400px; padding: 28px 24px; border-radius: 28px; background: var(--bg);
+    box-shadow: 10px 10px 24px var(--dark), -10px -10px 24px var(--light);
+  }
+
+  /* Bingkai foto timbul */
+  .foto-wrap {
+    position: relative;
+    width: 112px; height: 112px; margin: 0 auto 16px; padding: 8px; border-radius: 50%;
+    background: var(--bg);
+    box-shadow: 6px 6px 14px var(--dark), -6px -6px 14px var(--light);
+    z-index: 2; animation: fotoMasuk .9s cubic-bezier(.2,.9,.3,1.25) both, majuMundur 7s cubic-bezier(.45,0,.55,1) .9s infinite;
+  }
+
+  /* Cincin timbul lembut yang memancar keluar */
+  .foto-wrap::before, .foto-wrap::after {
+    content: ""; position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
+    box-shadow: 4px 4px 10px var(--dark), -4px -4px 10px var(--light);
+    opacity: 0; animation: cincin 3.6s ease-out 1.2s infinite;
+  }
+  .foto-wrap::after { animation-delay: 3s; }
+  .foto {
+    display: block; width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
+    box-shadow: inset 3px 3px 6px var(--dark), inset -3px -3px 6px var(--light);
+    transform: perspective(500px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) scale(var(--s, 1));
+    transition: transform .45s cubic-bezier(.22,1,.36,1), box-shadow .4s ease;
+    will-change: transform; cursor: pointer;
+  }
+  .foto-wrap:hover .foto { --s: 1.07; }
+  .foto-wrap:active .foto {
+    --s: .93;
+    box-shadow: inset 6px 6px 12px var(--dark), inset -6px -6px 12px var(--light);
+  }
+
+  /* Animasi foto bertema neumorphism */
+  @keyframes fotoMasuk {
+    from { opacity: 0; transform: scale(.6);
+           box-shadow: 0 0 0 var(--dark), 0 0 0 var(--light); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+  /* Maju ke depan (besar, bayangan lebar) lalu mundur ke belakang (kecil, bayangan rapat) */
+  @keyframes majuMundur {
+    0%, 100% { transform: perspective(700px) translateZ(0) scale(1) rotateX(0deg);
+               box-shadow: 6px 6px 14px var(--dark), -6px -6px 14px var(--light); }
+    25%      { transform: perspective(700px) translateZ(70px) scale(1.1) rotateX(7deg);
+               box-shadow: 14px 22px 32px var(--dark), -10px -10px 24px var(--light); }
+    50%      { transform: perspective(700px) translateZ(0) scale(1) rotateX(0deg);
+               box-shadow: 6px 6px 14px var(--dark), -6px -6px 14px var(--light); }
+    75%      { transform: perspective(700px) translateZ(-70px) scale(.88) rotateX(-7deg);
+               box-shadow: 3px 3px 7px var(--dark), -3px -3px 7px var(--light); }
+  }
+  @keyframes cincin {
+    0%   { opacity: .8; transform: scale(1); }
+    100% { opacity: 0;  transform: scale(1.55); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .foto-wrap, .foto-wrap::before, .foto-wrap::after { animation: none; }
+  }
+
+  /* ===== Teks neumorphism + animasi halus ===== */
+  :root { --ease-text: cubic-bezier(.22, 1, .36, 1); }
+
+  /* Judul: huruf timbul, muncul satu-satu, "bernapas" pelan */
+  h1 {
+    margin: 0 0 6px; font-size: 24px; text-align: center; letter-spacing: .3px;
+    text-shadow: 2px 2px 4px var(--tsh1), -2px -2px 4px var(--light);
+    animation: napas 5s ease-in-out 2s infinite;
+  }
+  .h {
+    display: inline-block; white-space: pre; cursor: default;
+    animation: huruf .8s var(--ease-text) calc(.35s + var(--i) * .045s) backwards;
+    transition: transform .4s var(--ease-text), color .4s ease;
+  }
+  .h:hover { transform: translateY(-4px) scale(1.12); color: var(--accent); }
+  @keyframes huruf {
+    from { opacity: 0; transform: translateY(22px) scale(.8); filter: blur(5px); }
+    to   { opacity: 1; transform: none; filter: blur(0); }
+  }
+  @keyframes napas {
+    0%, 100% { text-shadow: 2px 2px 4px var(--tsh1), -2px -2px 4px var(--light); }
+    50%      { text-shadow: 3px 4px 8px var(--tsh2), -3px -3px 7px var(--light); }
+  }
+
+  /* Sub judul, kolom, penghitung: naik pelan + fokus dari buram */
+  p.sub {
+    margin: 0 0 22px; text-align: center; color: var(--muted); font-size: 14px;
+    text-shadow: 1px 1px 2px var(--light);
+    animation: naik .9s var(--ease-text) .85s backwards;
+  }
+  .field { animation: naik .9s var(--ease-text) 1s backwards; }
+  .count { animation: naik .9s var(--ease-text) 1.15s backwards; }
+  @keyframes naik {
+    from { opacity: 0; transform: translateY(16px); filter: blur(6px); }
+    to   { opacity: 1; transform: none; filter: blur(0); }
+  }
+
+  /* Label bergeser dan menyala saat kolom difokuskan */
+  label {
+    font-size: 13px; color: var(--muted); display: block; margin: 0 0 8px 6px; letter-spacing: .4px;
+    text-shadow: 1px 1px 1px var(--light);
+    transition: color .4s ease, transform .5s var(--ease-text), letter-spacing .5s var(--ease-text);
+  }
+  .field:focus-within label { color: var(--accent); transform: translateX(4px); letter-spacing: 1.2px; }
+
+  /* Teks yang diketik + placeholder */
+  textarea { caret-color: var(--accent); text-shadow: 1px 1px 2px var(--tsh3); }
+  textarea::placeholder { transition: opacity .4s ease, transform .5s var(--ease-text); }
+  textarea:focus::placeholder { opacity: 0; transform: translateX(10px); }
+
+  /* Angka penghitung: memantul tiap berubah, hangat saat hampir penuh */
+  .count { transition: color .4s ease; }
+  #n { display: inline-block; }
+  #n.bump { animation: bump .35s var(--ease-text); }
+  @keyframes bump { 40% { transform: translateY(-4px) scale(1.25); color: var(--accent); } }
+  .count.hampir { color: var(--warn); }
+
+  @media (prefers-reduced-motion: reduce) {
+    h1, .h, p.sub, .field, .count, #n { animation: none !important; }
+  }
+
+
+  /* ===== Sakelar mode gelap / terang ===== */
+  .bar-atas { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin: -6px 0 10px;
+              animation: naik .8s var(--ease-text) .2s backwards; }
+  #namaTema { font-size: 12px; color: var(--muted); letter-spacing: .4px; text-shadow: 1px 1px 1px var(--light); }
+  .sakelar {
+    position: relative; width: 68px; height: 34px; border-radius: 34px; padding: 4px; cursor: pointer; outline: 0;
+    background: var(--bg); box-shadow: inset 4px 4px 8px var(--dark), inset -4px -4px 8px var(--light);
+  }
+  .sakelar:focus-visible { box-shadow: inset 4px 4px 8px var(--dark), inset -4px -4px 8px var(--light), 0 0 0 2px var(--ring); }
+  .knob {
+    position: absolute; top: 4px; left: 4px; width: 26px; height: 26px; border-radius: 50%;
+    background: var(--bg); display: flex; align-items: center; justify-content: center;
+    box-shadow: 3px 3px 6px var(--dark), -3px -3px 6px var(--light);
+    transform: translateX(34px);
+    transition: transform .6s var(--ease-text);
+  }
+  :root[data-tema="terang"] .knob { transform: translateX(0); }
+  .sakelar:active .knob { box-shadow: 1px 1px 3px var(--dark), -1px -1px 3px var(--light); }
+  .ikon { position: absolute; width: 16px; height: 16px; fill: none; stroke: var(--accent); stroke-width: 2;
+          stroke-linecap: round; stroke-linejoin: round;
+          transition: opacity .4s ease, transform .7s var(--ease-text); }
+  .ikon.bulan { opacity: 1; transform: rotate(0) scale(1); }
+  .ikon.matahari { opacity: 0; transform: rotate(-90deg) scale(.4); }
+  :root[data-tema="terang"] .ikon.bulan { opacity: 0; transform: rotate(90deg) scale(.4); }
+  :root[data-tema="terang"] .ikon.matahari { opacity: 1; transform: rotate(0) scale(1); }
+
+  /* Kolom input tenggelam */
+  textarea {
+    width: 100%; min-height: 130px; padding: 14px 16px; border: 0; outline: 0; resize: none;
+    border-radius: 18px; background: var(--bg); color: var(--text); font: inherit;
+    box-shadow: inset 6px 6px 12px var(--dark), inset -6px -6px 12px var(--light);
+    transition: box-shadow .5s var(--ease-text);
+  }
+  textarea::placeholder { color: var(--muted); }
+  textarea:focus { box-shadow: inset 6px 6px 12px var(--dark), inset -6px -6px 12px var(--light), 0 0 0 2px var(--ring); }
+  .count { text-align: right; font-size: 12px; color: var(--muted); margin: 8px 6px 0 0; }
+
+  /* Tombol neumorphism dengan animasi super halus */
+  button {
+    --ease: cubic-bezier(.22, 1, .36, 1);
+    position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center;
+    width: 100%; height: 56px; margin: 18px auto 0; padding: 0 20px; border: 0; border-radius: 18px;
+    background: var(--bg); color: var(--accent); font: inherit; font-weight: 700; font-size: 16px; cursor: pointer;
+    box-shadow: 6px 6px 14px var(--dark), -6px -6px 14px var(--light);
+    transition: width .6s var(--ease), border-radius .6s var(--ease), transform .45s var(--ease),
+                box-shadow .45s var(--ease), color .4s ease;
+  }
+  /* kilau lembut yang lewat saat di-hover */
+  button::before {
+    content: ""; position: absolute; top: 0; bottom: 0; left: -60%; width: 40%;
+    background: linear-gradient(100deg, transparent, var(--kilau), transparent);
+    transform: skewX(-20deg); transition: left .9s var(--ease); pointer-events: none;
+  }
+  button:hover:not(:disabled)::before { left: 130%; }
+  button:hover:not(:disabled) {
+    transform: translateY(-3px);
+    box-shadow: 9px 12px 20px var(--dark), -8px -8px 18px var(--light);
+  }
+  button:active:not(:disabled) {
+    transform: translateY(1px) scale(.97);
+    box-shadow: inset 5px 5px 10px var(--dark), inset -5px -5px 10px var(--light);
+    transition-duration: .18s;
+  }
+  button:disabled { cursor: default; }
+
+  /* Isi tombol: teks, spinner, centang */
+  #label { max-width: 140px; white-space: nowrap; overflow: hidden;
+           transition: max-width .5s var(--ease), opacity .3s ease; }
+  .spinner {
+    width: 0; height: 24px; margin-right: 0; border-radius: 50%; flex: none; opacity: 0;
+    border: 3px solid rgba(138,146,168,.28); border-top-color: var(--accent); border-width: 0;
+    transition: width .5s var(--ease), margin .5s var(--ease), opacity .3s ease;
+  }
+  .cek { width: 0; height: 24px; flex: none; opacity: 0; transition: width .5s var(--ease), margin .5s var(--ease), opacity .3s ease; }
+  .cek path { fill: none; stroke: var(--ok); stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round;
+              stroke-dasharray: 26; stroke-dashoffset: 26; }
+
+  /* Loading: tombol mengecil jadi lingkaran timbul + spinner */
+  button.loading { width: 56px; padding: 0; border-radius: 50%; }
+  button.loading #label { max-width: 0; opacity: 0; }
+  button.loading .spinner { width: 24px; opacity: 1; border-width: 3px; animation: spin .8s linear infinite; }
+
+  /* Sukses: melebar kembali, teks hijau, centang tergambar */
+  button.sukses { color: var(--ok); }
+  button.sukses .cek { width: 24px; margin-right: 8px; opacity: 1; }
+  button.sukses .cek path { animation: gambar .5s .15s var(--ease) forwards; }
+  @keyframes gambar { to { stroke-dashoffset: 0; } }
+
+  /* Gagal: bergetar lembut, teks merah */
+  button.gagal { color: var(--err); animation: getar .5s var(--ease); }
+  @keyframes getar { 20% { transform: translateX(-6px); } 40% { transform: translateX(5px); }
+                     60% { transform: translateX(-3px); } 80% { transform: translateX(2px); } }
+
+  /* Efek riak saat ditekan */
+  .ripple {
+    position: absolute; border-radius: 50%; pointer-events: none;
+    background: var(--ripple); transform: scale(0);
+    animation: ripple .7s var(--ease) forwards;
+  }
+  @keyframes ripple { to { transform: scale(4); opacity: 0; } }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) {
+    button, button::before, #label, .spinner, .cek { transition: none; animation: none; }
+  }
+
+  /* Pesan status di bawah tombol */
+  #status {
+    margin: 18px auto 0; min-height: 44px; display: flex; align-items: center; justify-content: center;
+  }
+  .badge {
+    display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 14px;
+    font-size: 14px; font-weight: 600; background: var(--bg);
+    box-shadow: inset 4px 4px 8px var(--dark), inset -4px -4px 8px var(--light);
+    animation: pop .4s cubic-bezier(.2,.9,.3,1.3);
+  }
+  .badge .ic { width: 20px; height: 20px; border-radius: 50%; color: #fff; font-size: 12px;
+               display: inline-flex; align-items: center; justify-content: center; }
+  .badge.ok { color: var(--ok); } .badge.ok .ic { background: var(--ok); }
+  .badge.err { color: var(--err); } .badge.err .ic { background: var(--err); }
+  .badge.err { animation: pop .4s cubic-bezier(.2,.9,.3,1.3), shake .4s .1s; }
+  @keyframes pop { from { opacity: 0; transform: translateY(10px) scale(.9); } to { opacity: 1; transform: none; } }
+  @keyframes shake { 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+</style>
+<script>
+  // Pasang tema tersimpan sebelum halaman tampil (bawaan: gelap)
+  try { document.documentElement.dataset.tema = localStorage.getItem("tema") || "gelap"; }
+  catch (e) { document.documentElement.dataset.tema = "gelap"; }
+</script>
+</head>
+<body>
+  <div class="card">
+    <div class="bar-atas">
+      <span id="namaTema">Mode gelap</span>
+      <div id="tema" class="sakelar" role="switch" tabindex="0" aria-checked="true" aria-label="Ganti mode gelap/terang">
+        <span class="knob">
+          <svg class="ikon bulan" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+          <svg class="ikon matahari" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+        </span>
+      </div>
+    </div>
+    <div class="foto-wrap">
+      <img id="foto" class="foto" alt="Foto profil" onerror="this.style.display='none'">
+    </div>
+    <h1 id="judul"></h1>
+    <p class="sub" id="sub"></p>
+
+    <div class="field">
+      <label for="pesan">Pesan</label>
+      <textarea id="pesan" maxlength="10000" placeholder="Tulis pesanmu..."></textarea>
+    </div>
+    <div class="count"><span id="n">0</span>/10.000</div>
+
+    <button id="kirim"><span class="spinner"></span><svg class="cek" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><span id="label">Kirim</span></button>
+    <div id="status"></div>
+  </div>
+
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script>
+  // ====== PENGATURAN: ubah di sini ======
+  // Foto: nama file di folder public (contoh "developer.jpg")
+  // atau link gambar (contoh "https://situs.com/fotoku.jpg")
+  const FOTO_PROFIL = "https://cdn.phototourl.com/member/2026-09-30-3a69cddf-bac9-45fa-9068-bccd685296e3.jpg";
+  const JUDUL = "Kirim Pesan ke pembuat  website";
+  const SUBJUDUL = "mau komplain, mau ngobrol, atau mau nanya nanya bisa langsung tulis kan di bawah ";
+  // Data dari dashboard EmailJS (emailjs.com)
+  const EMAILJS_PUBLIC_KEY = "bY8pRCV79ZARmHyGE";
+  const EMAILJS_SERVICE_ID = "service_i63qosn";
+  const EMAILJS_TEMPLATE_ID = "template_zxuy18a";
+  // =======================================
+
+  // ====== Sakelar mode gelap / terang ======
+  const rootEl = document.documentElement;
+  const sakelar = document.getElementById("tema");
+  const namaTema = document.getElementById("namaTema");
+  const metaWarna = document.querySelector('meta[name="theme-color"]');
+
+  function terapkanTema(t, simpan) {
+    rootEl.dataset.tema = t;
+    const gelap = t === "gelap";
+    sakelar.setAttribute("aria-checked", gelap);
+    namaTema.textContent = gelap ? "Mode gelap" : "Mode terang";
+    if (metaWarna) metaWarna.content = gelap ? "#2a2e39" : "#e0e5ec";
+    if (simpan) { try { localStorage.setItem("tema", t); } catch (e) {} }
+  }
+  terapkanTema(rootEl.dataset.tema || "gelap", false);
+  requestAnimationFrame(() => requestAnimationFrame(() => rootEl.classList.add("siap")));
+
+  const gantiTema = () => terapkanTema(rootEl.dataset.tema === "gelap" ? "terang" : "gelap", true);
+  sakelar.addEventListener("click", gantiTema);
+  sakelar.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); gantiTema(); }
+  });
+
+  // Foto miring 3D mengikuti jari / kursor
+  const fotoEl = document.getElementById("foto");
+  const bingkai = fotoEl.parentElement;
+  document.addEventListener("pointermove", (e) => {
+    const r = bingkai.getBoundingClientRect();
+    const dx = (e.clientX - (r.left + r.width / 2)) / (window.innerWidth / 2);
+    const dy = (e.clientY - (r.top + r.height / 2)) / (window.innerHeight / 2);
+    const cl = (v) => Math.max(-1, Math.min(1, v));
+    fotoEl.style.setProperty("--ry", cl(dx) * 16 + "deg");
+    fotoEl.style.setProperty("--rx", cl(dy) * -16 + "deg");
+  });
+  document.addEventListener("pointerleave", () => {
+    fotoEl.style.setProperty("--ry", "0deg");
+    fotoEl.style.setProperty("--rx", "0deg");
+  });
+
+  emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
+  document.getElementById("foto").src = FOTO_PROFIL;
+  // Pecah judul jadi huruf-huruf supaya bisa muncul satu per satu
+  const judulEl = document.getElementById("judul");
+  [...JUDUL].forEach((c, i) => {
+    const h = document.createElement("span");
+    h.className = "h";
+    h.style.setProperty("--i", i);
+    h.textContent = c;
+    judulEl.appendChild(h);
+  });
+  document.getElementById("sub").textContent = SUBJUDUL;
+
+  const pesan = document.getElementById("pesan");
+  const btn = document.getElementById("kirim");
+  const label = document.getElementById("label");
+  const status = document.getElementById("status");
+  let terakhir = 0;
+
+  const nEl = document.getElementById("n");
+  pesan.addEventListener("input", () => {
+    nEl.textContent = pesan.value.length;
+    nEl.classList.remove("bump"); void nEl.offsetWidth; nEl.classList.add("bump");
+    document.querySelector(".count").classList.toggle("hampir", pesan.value.length > 9000);
+  });
+
+  // Efek riak di tombol
+  btn.addEventListener("pointerdown", (e) => {
+    if (btn.disabled) return;
+    const r = btn.getBoundingClientRect();
+    const size = Math.max(r.width, r.height);
+    const dot = document.createElement("span");
+    dot.className = "ripple";
+    dot.style.width = dot.style.height = size + "px";
+    dot.style.left = e.clientX - r.left - size / 2 + "px";
+    dot.style.top = e.clientY - r.top - size / 2 + "px";
+    btn.appendChild(dot);
+    setTimeout(() => dot.remove(), 600);
+  });
+
+  function tampilStatus(ok, teks) {
+    status.innerHTML = "";
+    const b = document.createElement("div");
+    b.className = "badge " + (ok ? "ok" : "err");
+    b.innerHTML = '<span class="ic">' + (ok ? "&#10003;" : "&#10005;") + "</span>";
+    b.append(teks);
+    status.appendChild(b);
+  }
+
+  let resetTimer;
+
+  btn.addEventListener("click", async () => {
+    const text = pesan.value.trim();
+    if (!text) {
+      tampilStatus(false, "Gagal terkirim: pesan masih kosong");
+      btn.classList.remove("gagal"); void btn.offsetWidth; btn.classList.add("gagal");
+      return;
+    }
+
+    clearTimeout(resetTimer);
+    btn.classList.remove("sukses", "gagal");
+    btn.disabled = true;
+    btn.classList.add("loading");
+    status.innerHTML = "";
+
+    let berhasil = false;
+    try {
+      // Jeda 10 detik antar pesan
+      const sisa = 10000 - (Date.now() - terakhir);
+      if (sisa > 0) throw new Error("tunggu " + Math.ceil(sisa / 1000) + " detik lagi");
+
+      await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, { message: text });
+      terakhir = Date.now();
+      berhasil = true;
+
+      pesan.value = "";
+      document.getElementById("n").textContent = 0;
+    } catch (e) {
+      // Error EmailJS berbentuk {status, text}
+      const alasan = e.text || e.message || "periksa koneksi internet";
+      tampilStatus(false, "Gagal terkirim: " + alasan);
+    }
+
+    // Tunggu sebentar supaya perubahan bentuk tombol terasa mulus
+    await new Promise((r) => setTimeout(r, 450));
+    btn.classList.remove("loading");
+
+    if (berhasil) {
+      label.textContent = "Terkirim";
+      btn.classList.add("sukses");
+      tampilStatus(true, "Pesan berhasil terkirim!");
+    } else {
+      btn.classList.add("gagal");
+    }
+
+    resetTimer = setTimeout(() => {
+      btn.classList.remove("sukses", "gagal");
+      label.textContent = "Kirim";
+      btn.disabled = false;
+    }, 2000);
+  });
+</script>
+</body>
+</html>
